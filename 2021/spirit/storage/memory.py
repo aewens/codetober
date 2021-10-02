@@ -1,6 +1,3 @@
-# NOTE - This file is under construction and only being imported for reference
-#        DO NOT USE IN CURRENT STATE WHILE THIS NOTICE IS PRESENT!!!
-
 from spirit.storage.database import Database
 from spirit.utils import Model, UNDEFINED, eprint
 
@@ -8,11 +5,13 @@ from collections import namedtuple
 from typing import Union, Optional, List, Any
 from uuid import uuid4
 
+NoneType = None.__class__
 make_uuid = lambda: uuid4().bytes
 
 class Metadata(Model):
+    placeholder: Optional[bool] = None
     size: Optional[int] = None
-    nullable: Optional[bool] = None
+    #nullable: Optional[bool] = None ; use Optional type to set nullable
     unique: Optional[bool] = None
     primary: Optional[bool] = None
     increment: Optional[bool] = None
@@ -22,130 +21,47 @@ class Metadata(Model):
 class Reference(Model):
     table: Model
     field: str
+    placeholder: Optional[str] = None
     cascade: Optional[str] = None
 
 class BaseModel(Model):
-    uuid: bytes = Metadata(size=16, nullable=False, default=make_uuid)
+    uuid: bytes = Metadata(size=16, default=make_uuid)
 
-class Template:
-    def __init__(self, model):
+    def alter(self, **kwargs):
+        pass
+
+    def forget(self):
+        pass
+
+class MemoryFactory:
+    def __init__(self, db, table, model):
+        self._db = db
+        self._table = table
         self._model = model
 
-        self._validators = defaultdict(list)
-        self._resolvers = defaultdict(lambda v: v)
-        self._nullable = defaultdict(lambda: False)
-        self._dependencies = dict()
+    # TODO: Implement features functions
+    def remember(self, **entry):
+        return None
 
-        self._compute_helpers()
-        self._factory = self._create_factory()
+    def focus(self, entries):
+        # remember but with insert_many
+        return list()
 
-    def _compute_helpers(self):
-        field_types = self._model._field_types
-        field_defaults = self._model._field_defaults
-        for name in self._model._fields:
-            validator = self._validators[name]
+    def recall(self, entry_id):
+        pass
 
-            field_type = field_types.get(name)
-            if field_type.__class__ is Union.__class__:
-                # Extract types from union / optional types
-                field_type = field_type.__args__
-
-            field_default = field_defaults.get(name)
-            field_default_type = None
-            if field_default is not None:
-                field_default_type = field_default.__class__
-
-            assigned_type = reassign.get(field_type, "null")
-            attributes = [name, assigned_type]
-            if field_default_type is Reference:
-                ref_table = field_default.table
-
-                self._resolver[name] = lambda v: getattr(v, "_id", UNDEFINED)
-                #validator.append(lambda v: isinstance(v, Model))
-
-                dependency = Template(ref_table)
-                self._dependencies[name] = dependency
-
-            if field_default_type is Metadata:
-                self._nullable[name] = field_default.nullable
-                #if field_default.nullable is False:
-                #    validator.append(lambda v: v is not None)
-
-            resolver = self._resolver[name]
-            validator.append(lambda v: isinstance(resolver(v), field_type))
-
-    def _create_factory(self, validate=True):
-        def factory(**kwargs):
-            fields = dict()
-            for name in self._model._fields:
-                field = kwargs.get(name)
-                if validate and not self.validate_field(name, field):
-                    return False, None
-
-                dependency = self._dependencies[name]
-                if dependency:
-                    resolver = self._resolver[name]
-                    fields[name] = 
-
-        return factory
-
-    def validate_field(self, key, value):
-        validator = self._validators[key]
-        for validate in validator:
-            valid = validate(value)
-            if not valid:
-                return False
-
-        return True
-
-    def validate(self, entity):
-        for name in model._fields:
-            field = getattr(entity, name, None)
-            if field is None:
-                if self._nullable[name]:
-                    continue
-
-                return False
-
-            if not self.validate_field(name, field):
-                return False
-
-        return True
-
-    def resolve(self, entity, field_name):
-        field = getattr(entity, field_name, None)
-        resolver = self._resolvers.get(field)
-        if resolver is None:
-            return field
-
-        return None if resolver is None else resolver(field)
-
-    def create(self, **kwargs):
-        try:
-            return self._factory(**kwargs)
-
-        except Exception as e:
-            return None
-
-    #def safe_create(self, **kwargs):
-    #    entity = self.create(**kwargs)
-    #    if entity is None:
-    #        return False, None
-
-    #    return self.validate(entity), entity
+    def forget(self):
+        pass
 
 class Memory:
-    def __init__(self, path, models=dict(), **preload):
+    def __init__(self, path, **preload):
         self._db = Database(path, preload)
-        self._models = dict()
-        self._templates = dict()
         self._tables = dict()
 
-        for model in models:
-            self.meditate(model)
-
-    def _extract_db_data(self, model):
+    def _process_model(self, model):
         table = model.__name__.lower()
+        if self._tables.get(table):
+            return table
 
         reassign = dict()
         reassign[bool] = "integer"
@@ -160,7 +76,16 @@ class Memory:
         field_types = model._field_types
         field_defaults = model._field_defaults
         for field_name in model._fields:
+            nullable = False
+
             field_type = field_types.get(field_name)
+            if field_type.__class__ is Union.__class__:
+                # Extract types from union / optional types
+                union_types = field_type.__args__
+                field_type = union_types[0]
+                if union_types[1] is NoneType:
+                    nullable = True
+
             field_default = field_defaults.get(field_name)
             field_default_type = None
             if field_default is not None:
@@ -186,8 +111,8 @@ class Memory:
                 fields.append(" ".join(attributes))
                 continue
 
-            if field_default.nullable is False:
-                attributes.append("not null")
+            if field_default.placeholder:
+                continue
 
             if field_default.unique is True:
                 attributes.append("unique")
@@ -201,56 +126,24 @@ class Memory:
             if field_default.index is True:
                 attributes.append("autoindex")
 
+            if not nullable:
+                attributes.append("not null")
+
             default = field_default.default
             if default != UNDEFINED:
-                remap = dict()
-                remap[None] = "null"
-                attributes.append(f"default {remap.get(default, default)}")
+                if not callable(default):
+                    remap = dict()
+                    remap[None] = "null"
+                    def_value = remap.get(default, default)
+                    attributes.append(f"default {def_value}")
 
             fields.append(" ".join(attributes))
 
-        return table, fields + references
+        fields = fields + references
+        self._db.create(table, fields)
+        self._tables[table] = True
+        return table
 
     def meditate(self, model):
-        # NOTE: May be able to remove model_name
-        model_name = model.__name__
-        table, fields = self._extract_db_data(model)
-        self._db.create(table, fields)
-
-        template = self._make_template(model)
-        self._templates[table] = template
-        self._templates[model_name] = template
-
-        self._models[table] = model
-        self._models[model_name] = model
-
-    def focus(self, table, template=None, entries):
-        # remember but with insert_many
-        pass
-
-    def remember(self, table, validate=True, debug=False, **entry):
-        if not validate:
-            self._db.insert(table, **data)
-            return True
-
-        template = self._template.get(table)
-        if template is None:
-            if debug:
-                eprint(f"No tempate for {table} to validate with")
-
-            return False
-
-        valid = template.validate(entry)
-
-    def recall(self):
-        pass
-
-    def alter(self):
-        pass
-
-    def forget(self):
-        pass
-
-    def export(self, fns):
-        return tuple(getattr(self, fn, None) for fn in fns)
-
+        table = self._process_model(model)
+        return MemoryFactory(self._db, table, model)
