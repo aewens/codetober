@@ -29,6 +29,7 @@ Goals:
 - ~~Create a general data model for passing around data~~
 - Use data models to create simple and minimal ORM for database wrapper
 - Connect event store and observable values to ORM
+- Add validators to ORM to ensure data integrity
 
 Bonus Goals:
 - Create tests for project components
