@@ -38,17 +38,20 @@ def main():
     p2 = ref.pop("b")
     assert p is not p2, "Data is not immutable"
 
-    mem = Memory(":memory:")
+    mem = Memory("/tmp/data.db")
     author_mem = mem.meditate(Author)
     note_mem = mem.meditate(Note)
 
     author_id = author_mem.remember(name="First Last")
-    author = author_mem.recall(author_id)
+    print(author_id)
+    assert isinstance(author_id, int) and author_id > 0, "Author ID is not uint"
 
-    note_ids = note_mem.focus([
-        {"author": author, "content": "Hello, world!"},
-        {"author": author, "content": "Lorem ipsum"}
-    ])
+    #author = author_mem.recall(author_id)
+
+    #note_ids = note_mem.focus([
+    #    {"author": author, "content": "Hello, world!"},
+    #    {"author": author, "content": "Lorem ipsum"}
+    #])
     #note = note_mem.recall(note_ids[0])
 
     #assert isinstance(author, Author)

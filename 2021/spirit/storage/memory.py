@@ -34,14 +34,23 @@ class BaseModel(Model):
         pass
 
 class MemoryFactory:
-    def __init__(self, db, table, model):
+    def __init__(self, db, model, table, template):
         self._db = db
-        self._table = table
         self._model = model
+        self._table = table
+        self._template = template
 
     # TODO: Implement features functions
     def remember(self, **entry):
-        return None
+        # Apply default values from callables
+        for key, value in self._template.items():
+            if entry.get(key) is not None:
+                continue
+
+            entry[key] = value()
+
+        entry_id = self._db.insert(self._table, **entry)
+        return entry_id
 
     def focus(self, entries):
         # remember but with insert_many
@@ -57,11 +66,13 @@ class Memory:
     def __init__(self, path, **preload):
         self._db = Database(path, preload)
         self._tables = dict()
+        self._templates = dict()
 
     def _process_model(self, model):
         table = model.__name__.lower()
+        template = self._templates.get(table, dict())
         if self._tables.get(table):
-            return table
+            return table, template
 
         reassign = dict()
         reassign[bool] = "integer"
@@ -131,7 +142,10 @@ class Memory:
 
             default = field_default.default
             if default != UNDEFINED:
-                if not callable(default):
+                if callable(default):
+                    template[field_name] = default
+
+                else:
                     remap = dict()
                     remap[None] = "null"
                     def_value = remap.get(default, default)
@@ -142,8 +156,9 @@ class Memory:
         fields = fields + references
         self._db.create(table, fields)
         self._tables[table] = True
-        return table
+        self._templates[table] = template
+        return table, template
 
     def meditate(self, model):
-        table = self._process_model(model)
-        return MemoryFactory(self._db, table, model)
+        table, template = self._process_model(model)
+        return MemoryFactory(self._db, model, table, template)
