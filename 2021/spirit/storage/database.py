@@ -1,4 +1,4 @@
-from spirit.utils import UNDEFINED
+from spirit.utils import UNDEFINED, eprint
 
 from typing import NamedTuple
 from enum import Enum
@@ -15,7 +15,9 @@ class Database:
         self._lock = lock
         self._debug = debug
         self._conn = None
-        if self._path == ":memory:" or not Path(self._path).exists():
+        # NOTE: current use case of :memory: does not really work here
+        #if self._path == ":memory:" or not Path(self._path).exists():
+        if not Path(self._path).exists():
             self.create_many(tables)
             self.create_indices(**indices)
 
@@ -70,7 +72,7 @@ class Database:
 
         except IntegrityError as e:
             err = format_exc() if self._debug else str(e)
-            print(err)
+            eprint(err)
             return err
 
     def execute(self, command, *args, fetch=False, default=None, commit=False):
@@ -90,11 +92,17 @@ class Database:
                     if err:
                         return default
 
+                    if "insert" == command.split()[0].lower():
+                        return cursor.lastrowid
+
                     result = cursor.fetchall()
                     if not result or len(result) == 0:
                         return default
 
                     return result
+
+                else:
+                    return cursor
 
         return default
 
@@ -122,9 +130,8 @@ class Database:
         result = self.read(command, *args, default=default)
         return self.get_one(result)
 
-    def write(self, command, *args):
-        kwargs = dict()
-        kwargs["fetch"] = False
+    def write(self, command, *args, **kwargs):
+        kwargs["fetch"] = kwargs.get("fetch", False)
         kwargs["commit"] = True
         return self.execute(command, *args, **kwargs)
 
@@ -136,7 +143,7 @@ class Database:
         values = ",".join("?" * len(kwargs))
         statement = f"INSERT INTO {table} ({keys}) VALUES ({values});"
         args = tuple(kwargs.values())
-        self.write(statement, *args)
+        return self.write(statement, *args, fetch=True)
 
     def insert_many(self, table, fields, inserts):
         params = list()
