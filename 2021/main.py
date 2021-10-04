@@ -51,10 +51,14 @@ def main():
     assert isinstance(author, Author), "Invalid author recall value"
     assert author.id == author_id, "Author ID not set properly"
 
-    #note_ids = note_mem.focus([
-    #    {"author": author, "content": "Hello, world!"},
-    #    {"author": author, "content": "Lorem ipsum"}
-    #])
+    note_ids = note_mem.focus([
+        {"author": author, "content": "Hello, world!"},
+        {"author": author, "content": "Lorem ipsum"}
+    ])
+    print(note_ids)
+    assert isinstance(note_ids, list), "Invalid type for note ids"
+    assert len(note_ids) == 2, "Invalid count of note ids"
+
     #note = note_mem.recall(note_ids[0])
 
     #assert isinstance(author, Author)
