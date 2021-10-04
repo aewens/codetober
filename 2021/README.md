@@ -27,7 +27,7 @@ Goals:
 - ~~Connect the observable values to the event store to monitor their changes~~
 - ~~Create a database wrapper for working with SQLite3~~
 - ~~Create a general data model for passing around data~~
-- Use data models to create simple and minimal ORM for database wrapper
+- ~~Use data models to create simple and minimal ORM for database wrapper~~
 - Connect event store and observable values to ORM
 - Add validators to ORM to ensure data integrity
 
