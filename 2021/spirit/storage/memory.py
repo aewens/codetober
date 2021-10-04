@@ -27,6 +27,13 @@ class Reference(Model):
 class BaseModel(Model):
     uuid: bytes = Metadata(size=16, default=make_uuid)
 
+    @property
+    def id(self):
+        return self._meta.get("id")
+
+    def assign(self, model_id):
+        self._meta["id"] = model_id
+
     def alter(self, **kwargs):
         pass
 
@@ -34,8 +41,9 @@ class BaseModel(Model):
         pass
 
 class MemoryFactory:
-    def __init__(self, db, model, table, template):
-        self._db = db
+    def __init__(self, mem, model, table, template):
+        self._mem = mem
+        self._db = self._mem._db
         self._model = model
         self._table = table
         self._template = template
@@ -43,21 +51,53 @@ class MemoryFactory:
     # TODO: Implement features functions
     def remember(self, **entry):
         # Apply default values from callables
-        for key, value in self._template.items():
+        for key, value in self._template["defaults"].items():
             if entry.get(key) is not None:
                 continue
 
             entry[key] = value()
 
+        for field, placeholder in self._template["placeholders"].items():
+            value = entry.pop(placeholder, None)
+            if value is not None:
+                entry[field] = value.id
+
         entry_id = self._db.insert(self._table, **entry)
         return entry_id
 
     def focus(self, entries):
-        # remember but with insert_many
+        # remember but for multiple entries
         return list()
 
     def recall(self, entry_id):
-        pass
+        keys = self._model._fields
+        where = dict()
+        where["id"] = entry_id
+        values = self._db.select_one(self._table, keys=keys, where=where)
+        if values is None:
+            return None
+
+        fields = dict()
+        for i, key in enumerate(keys):
+            value = values[i]
+            fields[key] = value
+
+        for field, placeholder in self._template["placeholders"].items():
+            placeholder_id = fields.get(field)
+            if placeholder_id is None:
+                continue
+
+            model = self._template["dependencies"].get(placeholder)
+            if model is None:
+                continue
+
+            factory = self._mem.meditate(model)
+            placeholder_entry = factory.recall(placeholder_id)
+            fields[field] = placeholder_entry
+
+        entry = self._model(**fields)
+        entry.assign(entry_id)
+        return entry
 
     def forget(self):
         pass
@@ -73,6 +113,10 @@ class Memory:
         template = self._templates.get(table, dict())
         if self._tables.get(table):
             return table, template
+
+        defaults = template["defaults"] = dict()
+        placeholders = template["placeholders"] = dict()
+        dependencies = template["dependencies"] = dict()
 
         reassign = dict()
         reassign[bool] = "integer"
@@ -118,11 +162,16 @@ class Memory:
 
                 references.append(" ".join(reference))
 
+                placeholder = field_default.placeholder
+                if placeholder is not None:
+                    placeholders[field_name] = placeholder
+
             if field_default_type is not Metadata:
                 fields.append(" ".join(attributes))
                 continue
 
             if field_default.placeholder:
+                dependencies[field_name] = field_type
                 continue
 
             if field_default.unique is True:
@@ -143,7 +192,7 @@ class Memory:
             default = field_default.default
             if default != UNDEFINED:
                 if callable(default):
-                    template[field_name] = default
+                    defaults[field_name] = default
 
                 else:
                     remap = dict()
@@ -161,4 +210,4 @@ class Memory:
 
     def meditate(self, model):
         table, template = self._process_model(model)
-        return MemoryFactory(self._db, model, table, template)
+        return MemoryFactory(self, model, table, template)
