@@ -15,6 +15,7 @@ class Database:
         self._lock = lock
         self._debug = debug
         self._conn = None
+
         # NOTE: current use case of :memory: does not really work here
         #if self._path == ":memory:" or not Path(self._path).exists():
         if not Path(self._path).exists():
@@ -47,6 +48,9 @@ class Database:
     @contextmanager
     def _transaction(self):
         with self._lock:
+            # Enforce foreign keys
+            self._conn.execute("PRAGMA foreign_keys = ON;")
+
             # Initiate auto-commit mode
             self._conn.execute("BEGIN")
             try:
@@ -187,7 +191,7 @@ class Database:
     def delete(self, table, where=dict()):
         clause = " AND ".join(f"{k} = ?" for k in where.keys())
         args = tuple(where.values())
-        query = f"DELETE FROM {table}{clause};"
+        query = f"DELETE FROM {table} WHERE {clause};"
         self.write(query, *args)
 
     def destroy(self, tables):
