@@ -65,9 +65,26 @@ class MemoryFactory:
         entry_id = self._db.insert(self._table, **entry)
         return entry_id
 
-    def focus(self, entries):
-        # remember but for multiple entries
-        return list()
+    def focus(self, entries, uuids=False):
+        """
+        Implements remember but for multiple entries
+        """
+        entry_ids = dict() if uuids else list()
+        for entry in entries:
+            # generating uuid here so we know it ahead of time
+            if uuids:
+                uuid = make_uuid()
+                entry["uuid"] = uuid
+
+            # NOTE - using insert over insert_many to get entry id
+            entry_id = self.remember(**entry)
+            if uuids:
+                entry_ids[uuid] = entry_id
+
+            else:
+                entry_ids.append(entry_id)
+
+        return entry_ids
 
     def recall(self, entry_id):
         keys = self._model._fields
