@@ -144,6 +144,7 @@ class ModelMeta(NamedTupleMeta):
 
 class Model(metaclass=ModelMeta):
     _root = True
+    _meta = dict()
 
     def __new__(cls, *args, **kwargs):
         if cls is Model:
