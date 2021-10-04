@@ -5,6 +5,9 @@ from spirit.storage import Memory, BaseModel, Metadata, Reference
 from typing import Optional
 from datetime import datetime
 
+# Debug imports
+from pprint import pprint
+
 now = lambda: datetime.now().timestamp()
 
 class Author(BaseModel):
@@ -14,7 +17,12 @@ class Note(BaseModel):
     created: int = Metadata(default=now)
     updated: int = Metadata(default=now)
     author: Author = Metadata(placeholder=True)
-    author_id: int = Reference(table=Author, field="id", placeholder="author")
+    author_id: int = Reference(
+        table=Author,
+        field="id",
+        placeholder="author",
+        cascade="delete"
+    )
     content: str
 
 def main():
@@ -77,8 +85,14 @@ def main():
     assert new_note.author_id == author_id2, "Invalid author ID for note"
     assert new_note.author == author2, "Invalid author value for note"
 
-    #note.forget()
-    #note_mem.forget(note_ids[1])
+    forgot1 = author2.forget()
+    assert forgot1, "Did not forgot author"
+
+    forgot2 = note_mem.forget(note_ids[1])
+    assert forgot2, "Did not forgot note"
+
+    pprint(note_mem.recite())
+    pprint(author_mem.recite())
 
 if __name__ == "__main__":
     main()
