@@ -87,7 +87,17 @@ class MemoryFactory:
         return entry_ids
 
     def recall(self, entry_id):
-        keys = self._model._fields
+        keys = list()
+        model_keys = self._model._fields
+
+        placeholders = self._template["placeholders"]
+        placeholder_fields = list(placeholders.values())
+        for key in model_keys:
+            if key in placeholder_fields:
+                continue
+
+            keys.append(key)
+
         where = dict()
         where["id"] = entry_id
         values = self._db.select_one(self._table, keys=keys, where=where)
@@ -99,7 +109,7 @@ class MemoryFactory:
             value = values[i]
             fields[key] = value
 
-        for field, placeholder in self._template["placeholders"].items():
+        for field, placeholder in placeholders.items():
             placeholder_id = fields.get(field)
             if placeholder_id is None:
                 continue
@@ -110,7 +120,7 @@ class MemoryFactory:
 
             factory = self._mem.meditate(model)
             placeholder_entry = factory.recall(placeholder_id)
-            fields[field] = placeholder_entry
+            fields[placeholder] = placeholder_entry
 
         entry = self._model(**fields)
         entry.assign(entry_id)
