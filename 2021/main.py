@@ -49,7 +49,7 @@ def main():
     author = author_mem.recall(author_id)
     print(author)
     assert isinstance(author, Author), "Invalid author recall value"
-    assert author.id == author_id, "Author ID not set properly"
+    assert author._id == author_id, "Author ID not set properly"
 
     note_ids = note_mem.focus([
         {"author": author, "content": "Hello, world!"},
@@ -62,14 +62,20 @@ def main():
     note = note_mem.recall(note_ids[0])
     print(note)
     assert isinstance(note, Note), "Invalid note recall value"
-    assert note.id == note_ids[0], "Note ID not set properly"
+    assert note._id == note_ids[0], "Note ID not set properly"
     assert note.author_id == author_id, "Invalid author ID for note"
     assert note.author == author, "Invalid author value for note"
 
-    #assert isinstance(author, Author)
-    #assert isinstance(note, Note)
+    author_id2 = author_mem.remember(name="First2 Last2")
+    author2 = author_mem.recall(author_id2)
+    assert author._id != author2._id, "Author IDs not being set properly"
 
-    #note.alter(content="Hello, universe!")
+    new_note = note.alter(content="Hello, universe!", author_id=author_id2)
+    print(new_note)
+    assert isinstance(new_note, Note), "Invalid note alter value"
+    assert new_note._id == note_ids[0], "Note ID not set properly"
+    assert new_note.author_id == author_id2, "Invalid author ID for note"
+    assert new_note.author == author2, "Invalid author value for note"
 
     #note.forget()
     #note_mem.forget(note_ids[1])
