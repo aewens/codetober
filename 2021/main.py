@@ -59,7 +59,12 @@ def main():
     assert isinstance(note_ids, list), "Invalid type for note ids"
     assert len(note_ids) == 2, "Invalid count of note ids"
 
-    #note = note_mem.recall(note_ids[0])
+    note = note_mem.recall(note_ids[0])
+    print(note)
+    assert isinstance(note, Note), "Invalid note recall value"
+    assert note.id == note_ids[0], "Note ID not set properly"
+    assert note.author_id == author_id, "Invalid author ID for note"
+    assert note.author == author, "Invalid author value for note"
 
     #assert isinstance(author, Author)
     #assert isinstance(note, Note)
