@@ -46,7 +46,10 @@ def main():
     print(author_id)
     assert isinstance(author_id, int) and author_id > 0, "Author ID is not uint"
 
-    #author = author_mem.recall(author_id)
+    author = author_mem.recall(author_id)
+    print(author)
+    assert isinstance(author, Author), "Invalid author recall value"
+    assert author.id == author_id, "Author ID not set properly"
 
     #note_ids = note_mem.focus([
     #    {"author": author, "content": "Hello, world!"},
