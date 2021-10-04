@@ -28,14 +28,57 @@ class BaseModel(Model):
     uuid: bytes = Metadata(size=16, default=make_uuid)
 
     @property
-    def id(self):
-        return self._meta.get("id")
+    def _id(self):
+        return self._meta.get(self.uuid, dict()).get("id")
 
-    def assign(self, model_id):
-        self._meta["id"] = model_id
+    @property
+    def _factory(self):
+        return self._meta.get(self.uuid, dict()).get("factory")
 
-    def alter(self, **kwargs):
-        pass
+    def assign(self, factory, model_id):
+        meta = self._meta[self.uuid] = dict()
+        meta["id"] = model_id
+        meta["factory"] = factory
+
+    def alter(self, **changes):
+        entry_id = self._id
+        if entry_id is None:
+            return False
+
+        factory = self._factory
+
+        kwargs = dict()
+        dependencies = factory._template["dependencies"]
+        dependency_fields = list(dependencies.keys())
+        for key, value in changes.items():
+            # Remove depedency fields
+            if key in dependency_fields:
+                continue
+
+            kwargs[key] = value
+
+        # Save changes
+        where = dict()
+        where["id"] = entry_id
+        factory._db.update(factory._table, where=where, **kwargs)
+
+        # Create updated model object
+        fields = self._asdict()
+        placeholders = factory._template["placeholders"]
+        for key, value in kwargs.items():
+            placeholder = placeholders.get(key)
+            if placeholder is not None:
+                model = dependencies.get(placeholder)
+                if model is not None:
+                    placeholder_factory = factory._mem.meditate(model)
+                    placeholder_entry = placeholder_factory.recall(value)
+                    fields[placeholder] = placeholder_entry
+
+            fields[key] = value
+
+        entry = factory._model(**fields)
+        entry.assign(factory, entry_id)
+        return entry
 
     def forget(self):
         pass
@@ -60,7 +103,7 @@ class MemoryFactory:
         for field, placeholder in self._template["placeholders"].items():
             value = entry.pop(placeholder, None)
             if value is not None:
-                entry[field] = value.id
+                entry[field] = value._id
 
         entry_id = self._db.insert(self._table, **entry)
         return entry_id
@@ -123,7 +166,7 @@ class MemoryFactory:
             fields[placeholder] = placeholder_entry
 
         entry = self._model(**fields)
-        entry.assign(entry_id)
+        entry.assign(self, entry_id)
         return entry
 
     def forget(self):
