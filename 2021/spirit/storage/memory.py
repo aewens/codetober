@@ -43,7 +43,7 @@ class BaseModel(Model):
     def alter(self, **changes):
         entry_id = self._id
         if entry_id is None:
-            return False
+            return None
 
         factory = self._factory
 
@@ -81,7 +81,16 @@ class BaseModel(Model):
         return entry
 
     def forget(self):
-        pass
+        entry_id = self._id
+        if entry_id is None:
+            return False
+
+        where = dict()
+        where["id"] = entry_id
+
+        factory = self._factory
+        factory._db.delete(factory._table, where=where)
+        return True
 
 class MemoryFactory:
     def __init__(self, mem, model, table, template):
@@ -169,8 +178,26 @@ class MemoryFactory:
         entry.assign(self, entry_id)
         return entry
 
-    def forget(self):
-        pass
+    def recite(self):
+        """
+        Implements recall but for all entities
+        """
+
+        entities = dict()
+        entity_ids = self._db.select(self._table, keys=["id"])
+        if entity_ids is None:
+            return list()
+
+        for (entity_id,) in entity_ids:
+            entities[entity_id] = self.recall(entity_id)
+
+        return entities
+
+    def forget(self, entry_id):
+        where = dict()
+        where["id"] = entry_id
+        self._db.delete(self._table, where=where)
+        return True
 
 class Memory:
     def __init__(self, path, **preload):
