@@ -1,6 +1,7 @@
 from spirit.utils import eprint
 from spirit.events import Ref, Store
 from spirit.storage import Memory, BaseModel, Metadata, Reference
+#from spirit.workers import Nursery
 
 from typing import Optional
 from datetime import datetime
@@ -25,7 +26,10 @@ class Note(BaseModel):
     )
     content: str
 
-def main():
+def parent(state):
+    pass
+
+def child(state):
     store = Store({
         "a": [
             lambda e: print(e)
@@ -91,8 +95,20 @@ def main():
     forgot2 = note_mem.forget(note_ids[1])
     assert forgot2, "Did not forgot note"
 
-    pprint(note_mem.recite())
-    pprint(author_mem.recite())
+    authors = author_mem.recite()
+    print(authors)
+    assert len(authors) == 1, "Forget is not working"
+    assert list(authors.keys())[0] == 1, "Forget is removing wrong ID"
+
+    notes = note_mem.recite()
+    print(notes)
+    assert len(notes) == 0, "Cascade on delete is not working"
+
+def main():
+    #state = dict()
+    #nursery = Nursery(state, parent, [child])
+    #nursery.spawn()
+    child(None)
 
 if __name__ == "__main__":
     main()
