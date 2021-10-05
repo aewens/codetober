@@ -30,7 +30,7 @@ Goals:
 - ~~Use data models to create simple and minimal ORM for database wrapper~~
 - Connect event store and observable values to ORM
 - Add validators to ORM to ensure data integrity
-- Add system to spawn worker child processes
+- ~~Add system to spawn worker child processes~~
 - Create a job scheduler system
 
 Bonus Goals:
