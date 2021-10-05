@@ -1,7 +1,7 @@
 from spirit.utils import eprint
 from spirit.events import Ref, Store
 from spirit.storage import Memory, BaseModel, Metadata, Reference
-#from spirit.workers import Nursery
+from spirit.workers import Nursery
 
 from typing import Optional
 from datetime import datetime
@@ -26,10 +26,12 @@ class Note(BaseModel):
     )
     content: str
 
-def parent(state):
-    pass
+def parent(self, states, pid, pids):
+    print(f"Parent<{pid}> {pids}")
 
-def child(state):
+def child(index, state, pid, ppid):
+    print(f"Child<{ppid}:{pid}>")
+
     store = Store({
         "a": [
             lambda e: print(e)
@@ -105,10 +107,9 @@ def child(state):
     assert len(notes) == 0, "Cascade on delete is not working"
 
 def main():
-    #state = dict()
-    #nursery = Nursery(state, parent, [child])
-    #nursery.spawn()
-    child(None)
+    state = [{}]
+    nursery = Nursery(parent, [child])
+    nursery.spawn(state)
 
 if __name__ == "__main__":
     main()
